@@ -1,7 +1,7 @@
 package main
 
 import (
-	. "github.com/elamre/go_beagle_api/beagle_bindings/bindings"
+	. "github.com/elamre/go_beagle_api/bindings"
 	"log"
 	"sync"
 	"time"
