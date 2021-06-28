@@ -6,9 +6,98 @@ package bindings
 */
 import "C"
 import (
+	"bufio"
 	"fmt"
+	"github.com/elamre/go_beagle_api/util"
+	"log"
+	"os"
+	"strings"
+	"sync"
+	"time"
 	"unsafe"
 )
+
+var running = false
+var wg sync.WaitGroup
+
+func ReadToCsvLoop(beagle Beagle, protocol BeagleProtocol, copyright, csvDescription, filename string) {
+	if running {
+		log.Println("Already running, stopping and starting again")
+		StopReadToCsvLoop()
+	}
+	wg.Add(1)
+	running = true
+	const bufferSize = 512
+	timingSize, err := BgBitTimingSize(BG_PROTOCOL_SPI, bufferSize)
+	util.CheckError(err)
+	mosi := make([]uint8, bufferSize)
+	miso := make([]uint8, bufferSize)
+	timing := make([]uint32, timingSize)
+	samplerateKhz, err := BgSampleRate(beagle, 0)
+	util.CheckError(err)
+	beagle.Enable(protocol)
+	if !strings.HasSuffix(filename, ".csv") {
+		filename += ".csv"
+	}
+	file, err := os.Create(filename)
+	util.CheckError(err)
+	writer := bufio.NewWriter(file)
+	util.CheckErrorRetVal(writer.WriteString("# " + csvDescription + "\n"))
+	util.CheckErrorRetVal(writer.WriteString("# " + time.Now().String()))
+	util.CheckErrorRetVal(writer.WriteString("# " + copyright + "\n"))
+	util.CheckErrorRetVal(writer.WriteString("# beagle version: " + beagle.GetVersion().String() + "\n"))
+	util.CheckErrorRetVal(writer.WriteString("#\n"))
+	util.CheckErrorRetVal(writer.WriteString("#\n"))
+	util.CheckErrorRetVal(writer.WriteString("# Level,Index,m:s.ms.us,Dur,Len,Err,Record,Data\n"))
+	util.CheckErrorRetVal(writer.WriteString("0,0,0:00.000.000,,,,Capture started," + time.Now().String() + "\n"))
+	level := 1 // No idea what this is for
+
+	go func() {
+		for ; running; {
+			count, status, timeSop, timeDuration, timeDataOffset, err := BgSpiRead(beagle, &mosi, &miso, &timing)
+			_, _, _ = timeSop, timeDuration, timeDataOffset
+			timeSopms := (uint64(timeSop)) / (uint64(samplerateKhz / 1000))
+			min := timeSopms / 60000000
+			rest := timeSopms % 60000000
+			sec := rest / 1000000
+			rest = rest % 1000000
+			ms := rest / 1000
+			rest = rest % 1000
+			us := rest
+			if err != nil {
+				log.Printf("error: %s", err)
+				continue
+			}
+
+			if status != 0 {
+				if status != BG_READ_TIMEOUT {
+					log.Println(status.String())
+				}
+				continue
+			}
+			if count <= 0 {
+				continue
+			}
+			dataString := ""
+			for i := int32(0); i < count; i++ {
+				dataString += fmt.Sprintf("%02x%02x ", mosi[i], miso[i])
+			}
+			timeString := fmt.Sprintf("%d:%d.%d.%d", min, sec, ms, us)
+			durationString := ""
+			w := fmt.Sprintf("0,%d,%s,%s,%d B,,Transaction,%s\n", level, timeString, durationString, count, dataString)
+			util.CheckErrorRetVal(writer.WriteString(w))
+			level += 3
+		}
+		util.CheckError(writer.Flush())
+		beagle.Disable()
+		wg.Done()
+	}()
+}
+
+func StopReadToCsvLoop() {
+	running = false
+	wg.Wait()
+}
 
 func checkRetVal(retVal C.int) error {
 	if retVal >= 0 {
