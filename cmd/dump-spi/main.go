@@ -17,7 +17,7 @@ func main() {
 	log.Printf("%+v %+v", ids, uniques)
 
 	port := 0
-	samplerate := int32(10000) // in kHz
+	samplerate := int32(50000) // in kHz
 	timeout := uint32(5000)    // in milliseconds
 	latency := uint32(200)     // in milliseconds
 	//length := int32(0)
@@ -27,9 +27,7 @@ func main() {
 	beagleDevice, err = beagle.NewBeagle(port)
 	checkError(err)
 	defer func() { checkError(beagleDevice.Close()) }()
-
-	samplerate, err = beagle.BgSampleRate(beagleDevice, samplerate)
-	checkError(err)
+	
 	beagleDevice.SetTimeout(timeout)
 	beagleDevice.SetLatency(latency)
 	if beagleDevice.IsFullSpeed() {
@@ -39,6 +37,7 @@ func main() {
 	}
 	beagleDevice.SpiConfigure(beagle.BG_SPI_SS_ACTIVE_LOW, beagle.BG_SPI_SCK_SAMPLING_EDGE_RISING, beagle.BG_SPI_BITORDER_MSB)
 	beagleDevice.TargetPower(beagle.BG_TARGET_POWER_OFF)
+	log.Printf("Samplerate: %d", beagleDevice.SetSampleRate(samplerate))
 	beagle.ReadToCsvLoop(beagleDevice, beagle.BG_PROTOCOL_SPI, "Infineon", "GtpGo", "output")
 	time.Sleep(10000 * time.Millisecond)
 	beagle.StopReadToCsvLoop()

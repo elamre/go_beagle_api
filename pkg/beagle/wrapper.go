@@ -34,7 +34,7 @@ func ReadToCsvLoop(beagle Beagle, protocol BeagleProtocol, copyright, csvDescrip
 	mosi := make([]uint8, bufferSize)
 	miso := make([]uint8, bufferSize)
 	timing := make([]uint32, timingSize)
-	samplerateKhz, err := BgSampleRate(beagle, 0)
+	samplerateKhz, err := BgSampleRate(beagle, beagle.GetSampleRate())
 	util2.CheckError(err)
 	beagle.Enable(protocol)
 	if !strings.HasSuffix(filename, ".csv") {

@@ -1,6 +1,27 @@
 package beagle
 
+import "github.com/elamre/go_beagle_api/pkg/util"
+
 type Beagle int32
+
+var samplerate int32
+
+func (b Beagle) GetSampleRate() int32 {
+	if samplerate == 0 {
+		samplerateKhz, err := BgSampleRate(b, 50000)
+		util.CheckError(err)
+		samplerate = samplerateKhz
+	}
+	return samplerate
+}
+
+func (b Beagle) SetSampleRate(rate int32) int32 {
+	samplerate = rate
+	samplerateKhz, err := BgSampleRate(b, 50000)
+	util.CheckError(err)
+	return samplerateKhz
+
+}
 
 func NewBeagle(port int) (Beagle, error) {
 	return BgOpen(port)
@@ -49,7 +70,6 @@ func (b Beagle) Disable() {
 		panic(err)
 	}
 }
-func (b Beagle) IsFullSpeed()bool{
+func (b Beagle) IsFullSpeed() bool {
 	return BgHostIfceSpeed(b)
 }
-
