@@ -1,4 +1,4 @@
-package bindings
+package beagle
 
 const (
 	// BG_DEBUG as defined in beagle/beagle.h:101

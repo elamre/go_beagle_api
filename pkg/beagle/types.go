@@ -1,4 +1,4 @@
-package bindings
+package beagle
 
 /*
 #include "beagle.h"
@@ -56,7 +56,7 @@ const (
 
 func (r ReadStatus) String() string {
 	retVal := ""
-	if r == BG_READ_OK{
+	if r == BG_READ_OK {
 		return "BG_READ_OK "
 	}
 	if r&BG_READ_TIMEOUT == BG_READ_TIMEOUT {

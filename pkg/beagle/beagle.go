@@ -1,4 +1,4 @@
-package bindings
+package beagle
 
 type Beagle int32
 
