@@ -2,7 +2,7 @@ package beagle
 
 /*
 #cgo linux LDFLAGS: -ldl
-#cgo CFLAGS: I. -I${SRCDIR}/
+#cgo CFLAGS: -I. -I${SRCDIR}/
 #include "beagle.h"
 */
 import "C"

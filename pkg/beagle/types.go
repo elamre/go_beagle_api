@@ -1,6 +1,7 @@
 package beagle
 
 /*
+#cgo CFLAGS: -I. -I${SRCDIR}/
 #include "beagle.h"
 */
 import "C"
