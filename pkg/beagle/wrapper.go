@@ -84,7 +84,7 @@ func ReadToCsvLoop(beagle Beagle, protocol BeagleProtocol, copyright, csvDescrip
 				dataString += fmt.Sprintf("%02x%02x ", mosi[i], miso[i])
 			}
 			timeString := fmt.Sprintf("%d:%d.%d.%d", min, sec, ms, us)
-			durationString := ""
+			durationString := fmt.Sprintf("%d us",timeDuration)
 			w := fmt.Sprintf("0,%d,%s,%s,%d B,,Transaction,%s\n", level, timeString, durationString, count, dataString)
 			util2.CheckErrorRetVal(writer.WriteString(w))
 			level += 3
