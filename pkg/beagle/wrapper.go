@@ -44,7 +44,7 @@ func ReadToCsvLoop(beagle Beagle, protocol BeagleProtocol, copyright, csvDescrip
 	util2.CheckError(err)
 	writer := bufio.NewWriter(file)
 	util2.CheckErrorRetVal(writer.WriteString("# " + csvDescription + "\n"))
-	util2.CheckErrorRetVal(writer.WriteString("# " + time.Now().String()))
+	util2.CheckErrorRetVal(writer.WriteString("# " + time.Now().String() + "\n"))
 	util2.CheckErrorRetVal(writer.WriteString("# " + copyright + "\n"))
 	util2.CheckErrorRetVal(writer.WriteString("# beagle version: " + beagle.GetVersion().String() + "\n"))
 	util2.CheckErrorRetVal(writer.WriteString("#\n"))
@@ -55,8 +55,9 @@ func ReadToCsvLoop(beagle Beagle, protocol BeagleProtocol, copyright, csvDescrip
 
 	go func() {
 		for ; running; {
-			count, status, timeSop, timeDuration, timeDataOffset, err := BgSpiRead(beagle, &mosi, &miso, &timing)
+			count, status, timeSop, timeDuration, timeDataOffset, err := BgSpiReadDataTiming(beagle, &mosi, &miso, &timing)
 			_, _, _ = timeSop, timeDuration, timeDataOffset
+
 			timeSopms := (uint64(timeSop)) / (uint64(samplerateKhz / 1000))
 			min := timeSopms / 60000000
 			rest := timeSopms % 60000000
@@ -79,12 +80,16 @@ func ReadToCsvLoop(beagle Beagle, protocol BeagleProtocol, copyright, csvDescrip
 			if count <= 0 {
 				continue
 			}
+			timeDurationUs := float64(timeDuration) / (float64(samplerateKhz)/1000)
 			dataString := ""
 			for i := int32(0); i < count; i++ {
 				dataString += fmt.Sprintf("%02x%02x ", mosi[i], miso[i])
 			}
+			if len(dataString) > 0 {
+				dataString = dataString[:len(dataString)-1]
+			}
 			timeString := fmt.Sprintf("%d:%d.%d.%d", min, sec, ms, us)
-			durationString := fmt.Sprintf("%d us",timeDuration)
+			durationString := fmt.Sprintf("%.3f us", timeDurationUs)
 			w := fmt.Sprintf("0,%d,%s,%s,%d B,,Transaction,%s\n", level, timeString, durationString, count, dataString)
 			util2.CheckErrorRetVal(writer.WriteString(w))
 			level += 3
@@ -191,7 +196,25 @@ func BgBitTimingSize(beagleProtocol BeagleProtocol, numDataBytes int32) (int32, 
 	return int32(retVal), checkRetVal(retVal)
 }
 
-func BgSpiRead(beagle Beagle, mosi *[]byte, miso *[]byte, timings *[]uint32) (count int32, status ReadStatus, timeSop uint64, timeDuration uint64, timeDataOffset uint32, err error) {
+func BgSpiReadBitTiming(beagle Beagle, mosi *[]byte, miso *[]byte, timings *[]uint32) (count int32, status ReadStatus, timeSop uint64, timeDuration uint64, timeDataOffset uint32, err error) {
+	retVal := C.bg_spi_read_bit_timing(
+		C.int(beagle),
+		(*C.u32)(unsafe.Pointer(&status)),
+		(*C.u64)(unsafe.Pointer(&timeSop)),
+		(*C.u64)(unsafe.Pointer(&timeDuration)),
+		(*C.u32)(unsafe.Pointer(&timeDataOffset)),
+		C.int(len(*mosi)),
+		(*C.u08)(unsafe.Pointer(&(*mosi)[0])),
+		C.int(len(*miso)),
+		(*C.u08)(unsafe.Pointer(&(*miso)[0])),
+		C.int(len(*timings)),
+		(*C.u32)(unsafe.Pointer(&(*timings)[0])),
+	)
+	count = int32(retVal)
+	return
+}
+
+func BgSpiReadDataTiming(beagle Beagle, mosi *[]byte, miso *[]byte, timings *[]uint32) (count int32, status ReadStatus, timeSop uint64, timeDuration uint64, timeDataOffset uint32, err error) {
 	retVal := C.bg_spi_read_data_timing(
 		C.int(beagle),
 		(*C.u32)(unsafe.Pointer(&status)),
