@@ -33,6 +33,14 @@ func (version BeagleVersion) String() string {
 		(version.Software)>>8, version.Software&0xFF, (version.Firmware)>>8, version.Firmware&0xFF, (version.Hardware)>>8, version.Hardware&0xFF)
 }
 
+type BeagleI2cPullup uint8
+
+const (
+	BG_I2C_PULLUP_OFF   = BeagleI2cPullup(0x00)
+	BG_I2C_PULLUP_ON    = BeagleI2cPullup(0x01)
+	BG_I2C_PULLUP_QUERY = BeagleI2cPullup(0x80)
+)
+
 // BeagleSpiSSPolarity as declared in beagle/beagle.h:671
 type BeagleSpiSSPolarity int32
 

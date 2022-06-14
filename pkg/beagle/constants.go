@@ -43,12 +43,6 @@ const (
 )
 
 const (
-	// BG_I2C_PULLUP_OFF as defined in beagle/beagle.h:618
-	BG_I2C_PULLUP_OFF = 0
-	// BG_I2C_PULLUP_ON as defined in beagle/beagle.h:619
-	BG_I2C_PULLUP_ON = 1
-	// BG_I2C_PULLUP_QUERY as defined in beagle/beagle.h:620
-	BG_I2C_PULLUP_QUERY = 128
 	// BG_I2C_MONITOR_DATA as defined in beagle/beagle.h:627
 	BG_I2C_MONITOR_DATA = 255
 	// BG_I2C_MONITOR_NACK as defined in beagle/beagle.h:628

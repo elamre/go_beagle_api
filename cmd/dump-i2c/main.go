@@ -35,10 +35,9 @@ func main() {
 	} else {
 		log.Println("high speed")
 	}
-	beagleDevice.SpiConfigure(beagle.BG_SPI_SS_ACTIVE_LOW, beagle.BG_SPI_SCK_SAMPLING_EDGE_RISING, beagle.BG_SPI_BITORDER_MSB)
 	beagleDevice.TargetPower(beagle.BG_TARGET_POWER_OFF)
 	log.Printf("Samplerate: %d", beagleDevice.SetSampleRate(samplerate))
-	beagle.ReadSpiToCsvLoop(beagleDevice, "Infineon", "GtpGo", "output")
+	beagle.ReadI2cToCsvLoop(beagleDevice, "Infineon", "GtpGo", "output")
 	time.Sleep(10000 * time.Millisecond)
 	beagle.StopReadToCsvLoop()
 }

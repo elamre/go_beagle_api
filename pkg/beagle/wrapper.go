@@ -21,7 +21,7 @@ import (
 var running = false
 var wg sync.WaitGroup
 
-func ReadToCsvLoop(beagle Beagle, protocol BeagleProtocol, copyright, csvDescription, filename string) {
+func ReadI2cToCsvLoop(beagle Beagle, copyright, csvDescription, filename string) {
 	if running {
 		log.Println("Already running, stopping and starting again")
 		StopReadToCsvLoop()
@@ -29,14 +29,13 @@ func ReadToCsvLoop(beagle Beagle, protocol BeagleProtocol, copyright, csvDescrip
 	wg.Add(1)
 	running = true
 	const bufferSize = 512
-	timingSize, err := BgBitTimingSize(BG_PROTOCOL_SPI, bufferSize)
+	timingSize, err := BgBitTimingSize(BG_PROTOCOL_I2C, bufferSize)
 	util2.CheckError(err)
-	mosi := make([]uint8, bufferSize)
-	miso := make([]uint8, bufferSize)
+	data := make([]uint16, bufferSize)
 	timing := make([]uint32, timingSize)
 	samplerateKhz, err := BgSampleRate(beagle, beagle.GetSampleRate())
 	util2.CheckError(err)
-	beagle.Enable(protocol)
+	beagle.Enable(BG_PROTOCOL_I2C)
 	if !strings.HasSuffix(filename, ".csv") {
 		filename += ".csv"
 	}
@@ -54,7 +53,86 @@ func ReadToCsvLoop(beagle Beagle, protocol BeagleProtocol, copyright, csvDescrip
 	level := 1 // No idea what this is for
 
 	go func() {
-		for ; running; {
+		for running {
+			count, status, timeSop, timeDuration, timeDataOffset, err := BgI2cReadDataTiming(beagle, &data, &timing)
+			_, _, _ = timeSop, timeDuration, timeDataOffset
+
+			timeSopms := (uint64(timeSop)) / (uint64(samplerateKhz / 1000))
+			min := timeSopms / 60000000
+			rest := timeSopms % 60000000
+			sec := rest / 1000000
+			rest = rest % 1000000
+			ms := rest / 1000
+			rest = rest % 1000
+			us := rest
+			if err != nil {
+				log.Printf("error: %s", err)
+				continue
+			}
+
+			if status != 0 {
+				if status != BG_READ_TIMEOUT {
+					log.Println(status.String())
+				}
+				continue
+			}
+			if count <= 0 {
+				continue
+			}
+			timeDurationUs := float64(timeDuration) / (float64(samplerateKhz) / 1000)
+			dataString := ""
+			for i := int32(0); i < count; i++ {
+				dataString += fmt.Sprintf("%02x ", data[i]&0xFF)
+			}
+			if len(dataString) > 0 {
+				dataString = dataString[:len(dataString)-1]
+			}
+			timeString := fmt.Sprintf("%d:%d.%d.%d", min, sec, ms, us)
+			durationString := fmt.Sprintf("%.3f us", timeDurationUs)
+			w := fmt.Sprintf("0,%d,%s,%s,%d B,,Transaction,%s\n", level, timeString, durationString, count, dataString)
+			util2.CheckErrorRetVal(writer.WriteString(w))
+			level += 3
+		}
+		util2.CheckError(writer.Flush())
+		beagle.Disable()
+		wg.Done()
+	}()
+}
+
+func ReadSpiToCsvLoop(beagle Beagle, copyright, csvDescription, filename string) {
+	if running {
+		log.Println("Already running, stopping and starting again")
+		StopReadToCsvLoop()
+	}
+	wg.Add(1)
+	running = true
+	const bufferSize = 512
+	timingSize, err := BgBitTimingSize(BG_PROTOCOL_SPI, bufferSize)
+	util2.CheckError(err)
+	mosi := make([]uint8, bufferSize)
+	miso := make([]uint8, bufferSize)
+	timing := make([]uint32, timingSize)
+	samplerateKhz, err := BgSampleRate(beagle, beagle.GetSampleRate())
+	util2.CheckError(err)
+	beagle.Enable(BG_PROTOCOL_SPI)
+	if !strings.HasSuffix(filename, ".csv") {
+		filename += ".csv"
+	}
+	file, err := os.Create(filename)
+	util2.CheckError(err)
+	writer := bufio.NewWriter(file)
+	util2.CheckErrorRetVal(writer.WriteString("# " + csvDescription + "\n"))
+	util2.CheckErrorRetVal(writer.WriteString("# " + time.Now().String() + "\n"))
+	util2.CheckErrorRetVal(writer.WriteString("# " + copyright + "\n"))
+	util2.CheckErrorRetVal(writer.WriteString("# beagle version: " + beagle.GetVersion().String() + "\n"))
+	util2.CheckErrorRetVal(writer.WriteString("#\n"))
+	util2.CheckErrorRetVal(writer.WriteString("#\n"))
+	util2.CheckErrorRetVal(writer.WriteString("# Level,Index,m:s.ms.us,Dur,Len,Err,Record,Data\n"))
+	util2.CheckErrorRetVal(writer.WriteString("0,0,0:00.000.000,,,,Capture started," + time.Now().String() + "\n"))
+	level := 1 // No idea what this is for
+
+	go func() {
+		for running {
 			count, status, timeSop, timeDuration, timeDataOffset, err := BgSpiReadDataTiming(beagle, &mosi, &miso, &timing)
 			_, _, _ = timeSop, timeDuration, timeDataOffset
 
@@ -80,7 +158,7 @@ func ReadToCsvLoop(beagle Beagle, protocol BeagleProtocol, copyright, csvDescrip
 			if count <= 0 {
 				continue
 			}
-			timeDurationUs := float64(timeDuration) / (float64(samplerateKhz)/1000)
+			timeDurationUs := float64(timeDuration) / (float64(samplerateKhz) / 1000)
 			dataString := ""
 			for i := int32(0); i < count; i++ {
 				dataString += fmt.Sprintf("%02x%02x ", mosi[i], miso[i])
@@ -185,6 +263,26 @@ func BgHostIfceSpeed(beagle Beagle) bool {
 	} else {
 		return false
 	}
+}
+
+func BgI2cPullup(beagle Beagle, pullup BeagleI2cPullup) error {
+	return checkRetVal(C.bg_i2c_pullup(C.int(beagle), C.u08(pullup)))
+}
+
+func BgI2cReadDataTiming(beagle Beagle, data *[]uint16, timings *[]uint32) (count int32, status ReadStatus, timeSop uint64, timeDuration uint64, timeDataOffset uint32, err error) {
+	retVal := C.bg_i2c_read_data_timing(
+		C.int(beagle),
+		(*C.u32)(unsafe.Pointer(&status)),
+		(*C.u64)(unsafe.Pointer(&timeSop)),
+		(*C.u64)(unsafe.Pointer(&timeDuration)),
+		(*C.u32)(unsafe.Pointer(&timeDataOffset)),
+		C.int(len(*data)),
+		(*C.u16)(unsafe.Pointer(&(*data)[0])),
+		C.int(len(*timings)),
+		(*C.u32)(unsafe.Pointer(&(*timings)[0])),
+	)
+	count = int32(retVal)
+	return
 }
 
 func BgSpiConfigure(beagle Beagle, ss_polarity BeagleSpiSSPolarity, sck_sampling_edge BeagleSpiSckSamplingEdge, bitorder BeagleSpiBitorder) error {

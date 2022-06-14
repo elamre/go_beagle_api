@@ -49,7 +49,11 @@ func (b Beagle) SetLatency(ms uint32) {
 		panic(err)
 	}
 }
-
+func (b Beagle) I2cSetPullup(pullup BeagleI2cPullup) {
+	if err := BgI2cPullup(b, pullup); err != nil {
+		panic(err)
+	}
+}
 func (b Beagle) SpiConfigure(polarity BeagleSpiSSPolarity, samplingEdge BeagleSpiSckSamplingEdge, order BeagleSpiBitorder) {
 	if err := BgSpiConfigure(b, polarity, samplingEdge, order); err != nil {
 		panic(err)
