@@ -81,7 +81,12 @@ func ReadI2cToCsvLoop(beagle Beagle, copyright, csvDescription, filename string)
 			}
 			timeDurationUs := float64(timeDuration) / (float64(samplerateKhz) / 1000)
 			dataString := ""
-			for i := int32(0); i < count; i++ {
+			address := (data[0] & 0xFF) >> 1
+			writeOp := "Read Transaction"
+			if data[0]&1 == 1 {
+				writeOp = "Write Transaction"
+			}
+			for i := int32(1); i < count; i++ {
 				dataString += fmt.Sprintf("%02x ", data[i]&0xFF)
 			}
 			if len(dataString) > 0 {
@@ -89,7 +94,8 @@ func ReadI2cToCsvLoop(beagle Beagle, copyright, csvDescription, filename string)
 			}
 			timeString := fmt.Sprintf("%d:%d.%d.%d", min, sec, ms, us)
 			durationString := fmt.Sprintf("%.3f us", timeDurationUs)
-			w := fmt.Sprintf("0,%d,%s,%s,%d B,,Transaction,%s\n", level, timeString, durationString, count, dataString)
+			w := fmt.Sprintf("0,%d,%s,%s,%d B,,%02x,%s,%s\n", level, timeString, durationString, count, address, writeOp, dataString)
+
 			util2.CheckErrorRetVal(writer.WriteString(w))
 			level += 3
 		}
