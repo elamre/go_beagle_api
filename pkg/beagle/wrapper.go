@@ -48,8 +48,8 @@ func ReadI2cToCsvLoop(beagle Beagle, copyright, csvDescription, filename string)
 	util2.CheckErrorRetVal(writer.WriteString("# beagle version: " + beagle.GetVersion().String() + "\n"))
 	util2.CheckErrorRetVal(writer.WriteString("#\n"))
 	util2.CheckErrorRetVal(writer.WriteString("#\n"))
-	util2.CheckErrorRetVal(writer.WriteString("# Level,Index,m:s.ms.us,Dur,Len,Err,Record,Data\n"))
-	util2.CheckErrorRetVal(writer.WriteString("0,0,0:00.000.000,,,,Capture started," + time.Now().String() + "\n"))
+	util2.CheckErrorRetVal(writer.WriteString("# Level,Index,m:s.ms.us,Dur,Len,Err,S/P,Addr,Record,Data\n"))
+	util2.CheckErrorRetVal(writer.WriteString("0,0,0:00.000.000,,,,,,Capture started,[" + time.Now().String() + "]\n"))
 	level := 1 // No idea what this is for
 
 	go func() {
@@ -94,7 +94,7 @@ func ReadI2cToCsvLoop(beagle Beagle, copyright, csvDescription, filename string)
 			}
 			timeString := fmt.Sprintf("%d:%d.%d.%d", min, sec, ms, us)
 			durationString := fmt.Sprintf("%.3f us", timeDurationUs)
-			w := fmt.Sprintf("0,%d,%s,%s,%d B,,%02x,%s,%s\n", level, timeString, durationString, count, address, writeOp, dataString)
+			w := fmt.Sprintf("0,%d,%s,%s,%d B,,SP,%02x,%s,%s\n", level, timeString, durationString, count, address, writeOp, dataString)
 
 			util2.CheckErrorRetVal(writer.WriteString(w))
 			level += 3
